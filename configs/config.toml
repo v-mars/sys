@@ -1,0 +1,59 @@
+[Server]
+Mode = "debug"
+IP = "0.0.0.0"
+Port = "3000"
+#LogPath = "./logs"
+LogLevel = "debug"
+
+
+[MySQL]
+DBName = "ops"
+User = "ocean"
+Password = "123456"
+Host = "127.0.0.1"
+Port = 3306
+Parameters = "charset=utf8mb4&parseTime=True&loc=Asia%2FShanghai"
+
+
+[Gorm]
+Debug = false
+DBType = "mysql"
+TablePrefix = ""
+MaxLifetime = 100
+MaxOpenConn = 200
+MaxIdleConn = 200
+
+[Redis]
+Host = "127.0.0.1:6379" # "xxxx:6379,xxxx:6379"
+Password = ""
+DB = 1
+
+[JWT]
+TokenType = "Bearer"     # Bearer
+TokenKey = "jS2SnJdSmTKRNQYh"
+RefreshKey = "jreJdSmT0kenYh"
+Age = 360000
+
+[LDAP]
+addr = "ad.example.org:389"
+baseDn = "dc=example,dc=org"
+bindDn = "cn=admin,dc=example,dc=org"
+bindPass = "password"
+authFilter = "(&(sAMAccountName=%s))"       # openldap "(cn=%s)"
+attributes = ["sAMAccountName", "displayName", "mail"]  # openldap ["cn", "displayName", "mail"]
+tls = false
+
+[email]
+smtpHost = "smtp.qq.com"
+port = 465
+username = "429472406@qq.com"
+password = "agpcnogzmayxcacj"
+from = "xxx@xx.cn"
+tls = false
+anonymous = false
+skipVerify = false
+
+[admin]
+emails = ["429472406@qq.com"]
+lark_webhook = ""
+lark_webhook_secret = ""

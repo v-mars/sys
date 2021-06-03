@@ -1,0 +1,1194 @@
+definitions:
+  auth.Params:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  auth.RefreshParams:
+    properties:
+      token:
+        type: string
+    required:
+    - token
+    type: object
+  permission.DeleteSchema:
+    properties:
+      rows:
+        items:
+          type: integer
+        type: array
+    type: object
+  permission.PostSchema:
+    properties:
+      Method:
+        type: string
+      name:
+        type: string
+      url:
+        type: string
+    required:
+    - name
+    type: object
+  permission.PutSchema:
+    properties:
+      Method:
+        type: string
+      name:
+        type: string
+      url:
+        type: string
+    type: object
+  portal.DeleteSchema:
+    properties:
+      rows:
+        items:
+          type: integer
+        type: array
+    type: object
+  portal.PostSchema:
+    properties:
+      by_update:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    required:
+    - name
+    type: object
+  portal.PutSchema:
+    properties:
+      by_update:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    type: object
+  response.Data:
+    properties:
+      code:
+        type: integer
+      data:
+        type: object
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  sys.Permission:
+    properties:
+      method:
+        type: string
+      name:
+        type: string
+      path:
+        type: string
+    type: object
+  sys.Role:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/sys.Permission'
+        type: array
+    type: object
+  tree_node.PostSchema:
+    properties:
+      mark:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: integer
+    required:
+    - mark
+    - name
+    type: object
+  tree_node.PutSchema:
+    properties:
+      mark:
+        type: string
+      parent_id:
+        type: integer
+      self_id:
+        type: integer
+      sibling_id:
+        description: 移动至： 0:第一位置 -1：末尾位置
+        type: integer
+    required:
+    - mark
+    - self_id
+    type: object
+  user.PostSchema:
+    properties:
+      email:
+        type: string
+      nickname:
+        type: string
+      password:
+        type: string
+      phone:
+        type: string
+      roles:
+        items:
+          type: integer
+        type: array
+      username:
+        type: string
+    required:
+    - email
+    - nickname
+    - password
+    - username
+    type: object
+  user.PutSchema:
+    properties:
+      by_update:
+        type: string
+      email:
+        description: Password string `json:"password" binding:"required"`
+        type: string
+      nickname:
+        description: ID       uint   `json:"id" binding:"required"`
+        type: string
+      phone:
+        type: string
+      roles:
+        items:
+          type: integer
+        type: array
+      status:
+        type: boolean
+      username:
+        type: string
+    type: object
+  usergroup.PostSchema:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      roles:
+        items:
+          type: integer
+        type: array
+      users:
+        description: OwnerID     *uint   `json:"owner_id"`
+        items:
+          type: integer
+        type: array
+    required:
+    - name
+    type: object
+  usergroup.PutSchema:
+    properties:
+      by_update:
+        type: string
+      description:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      owner_id:
+        type: integer
+      roles:
+        items:
+          type: integer
+        type: array
+      users:
+        items:
+          type: integer
+        type: array
+    required:
+    - id
+    - name
+    type: object
+host: localhost:5000
+info:
+  contact:
+    email: 429472406@qq.com
+    name: ocean.zhang
+  description: |-
+    Mars System Manage api v1
+    200: '成功'
+    Authorization Bearer token
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: OPS Go Docs
+  version: v1.0
+paths:
+  /api/v1/login:
+    post:
+      description: 登录
+      parameters:
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/auth.Params'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      summary: 登录
+      tags:
+      - 登录认证
+  /api/v1/refresh-token:
+    post:
+      description: 刷新Token
+      parameters:
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RefreshParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      summary: 刷新Token
+      tags:
+      - 登录认证
+  /api/v1/sys/permission:
+    delete:
+      description: Permission
+      parameters:
+      - description: '参数信息: {rows:[1,2]}'
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/permission.DeleteSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 删除权限
+      tags:
+      - 权限管理
+    get:
+      description: Permission
+      parameters:
+      - description: 权限名
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 权限列表
+      tags:
+      - 权限管理
+    post:
+      description: Permission
+      parameters:
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/permission.PostSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 创建权限
+      tags:
+      - 权限管理
+  /api/v1/sys/permission/{id}:
+    get:
+      description: Permission
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 权限详细
+      tags:
+      - 权限管理
+    put:
+      description: Permission
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/permission.PutSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 更新权限
+      tags:
+      - 权限管理
+  /api/v1/sys/portal:
+    delete:
+      description: Portal
+      parameters:
+      - description: '参数信息: {rows:[1,2]}'
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/portal.DeleteSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 删除Portal
+      tags:
+      - Portal管理
+    get:
+      description: Portal
+      parameters:
+      - description: Portal名
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: Portal列表
+      tags:
+      - Portal管理
+    post:
+      description: Portal
+      parameters:
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/portal.PostSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 创建Portal
+      tags:
+      - Portal管理
+  /api/v1/sys/portal-all:
+    get:
+      description: Portal
+      parameters:
+      - description: Portal名
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: Portal all列表
+      tags:
+      - Portal管理
+  /api/v1/sys/portal-type:
+    get:
+      description: Portal
+      parameters:
+      - description: Portal名
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: Portal type列表
+      tags:
+      - Portal管理
+  /api/v1/sys/portal/{id}:
+    get:
+      description: Portal
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: Portal详细
+      tags:
+      - Portal管理
+    put:
+      description: Portal
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/portal.PutSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 更新Portal
+      tags:
+      - Portal管理
+  /api/v1/sys/portal/favor/:id:
+    delete:
+      description: Portal
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: Portal收藏取消
+      tags:
+      - Portal管理
+    post:
+      description: Portal
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: Portal收藏
+      tags:
+      - Portal管理
+  /api/v1/sys/role:
+    delete:
+      description: 角色
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 删除角色
+      tags:
+      - 角色管理
+    get:
+      description: 角色
+      parameters:
+      - description: 角色名
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 角色列表
+      tags:
+      - 角色管理
+    post:
+      description: 角色
+      parameters:
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/sys.Role'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 创建角色
+      tags:
+      - 角色管理
+    put:
+      description: 角色
+      parameters:
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/sys.Role'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 更新角色
+      tags:
+      - 角色管理
+  /api/v1/sys/roles:
+    get:
+      description: 角色
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 所有角色
+      tags:
+      - 角色管理
+  /api/v1/sys/tree_node:
+    get:
+      description: 树形结构
+      parameters:
+      - description: 树形结构名
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 树形结构列表
+      tags:
+      - 树形结构管理
+    post:
+      description: 树形结构
+      parameters:
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/tree_node.PostSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 创建树形结构node
+      tags:
+      - 树形结构管理
+    put:
+      description: 树形结构
+      parameters:
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/tree_node.PutSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 移动树形结构Node
+      tags:
+      - 树形结构管理
+  /api/v1/sys/tree_node/{id}:
+    get:
+      description: 树形结构
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 树形结构详细
+      tags:
+      - 树形结构管理
+  /api/v1/sys/tree_node/{id}/{mark}:
+    delete:
+      description: 树形结构
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 删除树形结构node
+      tags:
+      - 树形结构管理
+  /api/v1/sys/tree_node/{id}/rename:
+    put:
+      description: 树形结构
+      parameters:
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/tree_node.PutSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 移动树形结构Node
+      tags:
+      - 树形结构管理
+  /api/v1/sys/tree_node_mark:
+    get:
+      description: 树形结构
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 树形结构Mark列表
+      tags:
+      - 树形结构管理
+  /api/v1/sys/user:
+    delete:
+      description: 用户
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 删除用户
+      tags:
+      - 用户管理
+    get:
+      description: 用户
+      parameters:
+      - description: pageNumber
+        in: query
+        name: pageNumber
+        type: integer
+      - description: pageSize
+        in: query
+        name: pageSize
+        type: integer
+      - description: 用户名
+        in: query
+        name: username
+        type: string
+      - description: 用户显示名
+        in: query
+        name: nickname
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 用户列表
+      tags:
+      - 用户管理
+    post:
+      description: 用户
+      parameters:
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/user.PostSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 创建用户
+      tags:
+      - 用户管理
+  /api/v1/sys/user/{id}:
+    get:
+      description: 用户
+      parameters:
+      - description: 用户id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 用户名
+        in: query
+        name: username
+        type: string
+      - description: 用户显示名
+        in: query
+        name: nickname
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 5000, "status": "error", "message": "error"}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      - ApiKeyAuth: []
+      summary: 用户详细
+      tags:
+      - 用户管理
+    put:
+      description: 用户
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/user.PutSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 更新用户
+      tags:
+      - 用户管理
+  /api/v1/sys/usergroup:
+    delete:
+      description: 用户组
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 删除用户组
+      tags:
+      - 用户组管理
+    get:
+      description: 用户组
+      parameters:
+      - description: pageNumber
+        in: query
+        name: pageNumber
+        type: integer
+      - description: pageSize
+        in: query
+        name: pageSize
+        type: integer
+      - description: 用户组显示名
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 用户组列表
+      tags:
+      - 用户组管理
+    post:
+      description: 用户组
+      parameters:
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/usergroup.PostSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 创建用户组
+      tags:
+      - 用户组管理
+    put:
+      description: 用户组
+      parameters:
+      - description: 参数信息
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/usergroup.PutSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 更新用户组
+      tags:
+      - 用户组管理
+  /api/v1/sys/usergroups:
+    get:
+      description: 用户组
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 2000, "status": "ok", "message": "success", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+        "400":
+          description: 'code": 4001, "status": "error", "message": "error", "data": ""}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 所有用户组
+      tags:
+      - 用户组管理
+  /api/v1/sys/users:
+    get:
+      description: 用户
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'code": 5000, "status": "error", "message": "error"}'
+          schema:
+            $ref: '#/definitions/response.Data'
+      security:
+      - ApiKeyAuth: []
+      summary: 所有用户列表
+      tags:
+      - 用户管理
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
