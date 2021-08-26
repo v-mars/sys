@@ -19,12 +19,12 @@ type IUserGroup interface {
 	GetAll(c *gin.Context)
 	Option() db.Option
 }
-type SUserGroup struct {
+type UserGroup struct {
 	DB *gorm.DB
 }
 
 func NewService(DB *gorm.DB) IUserGroup {
-	return SUserGroup{DB: DB}
+	return UserGroup{DB: DB}
 }
 
 // GetAll
@@ -36,14 +36,15 @@ func NewService(DB *gorm.DB) IUserGroup {
 // @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
 // @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
 // @Router /api/v1/sys/usergroups [get]
-func (r SUserGroup) GetAll(c *gin.Context) {
+func (r UserGroup) GetAll(c *gin.Context) {
+
 	var obj []All
-	var pageData = response.PageDataList{PageNumber: 1,PageSize:0,List:&obj}
+	var pageData = response.PageDataList{Page: 1,PageSize:0,List:&obj}
 	o := db.Option{}
 	o.Select = "distinct usergroup.id, name"
 	o.Order = "ID DESC"
 	o.Scan = true
-	err := db.Query(r.DB,&sys.UserGroup{}, o, &pageData)
+	err := db.Query(r.DB,&sys.Usergroup{}, o, &pageData)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -53,20 +54,20 @@ func (r SUserGroup) GetAll(c *gin.Context) {
 
 }
 
-// Query
+
 // @Tags 用户组管理
 // @Summary 用户组列表
 // @Description 用户组
 // @Produce  json
 // @Security ApiKeyAuth
-// @Param pageNumber query int false "pageNumber"
+// @Param page query int false "page"
 // @Param pageSize query int false "pageSize"
 // @Param name query string false "用户组显示名"
 // @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
 // @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
 // @Router /api/v1/sys/usergroup [get]
-func (r SUserGroup) Query(c *gin.Context) {
-	var obj []UserGroup
+func (r UserGroup) Query(c *gin.Context) {
+	var obj []Usergroup
 	var pageData = response.InitPageData(c, &obj, false)
 	type Param struct {
 		Name       string `form:"name"` // `form:"name" binding:"required"`
@@ -85,7 +86,7 @@ func (r SUserGroup) Query(c *gin.Context) {
 	o.Order = "ID DESC"
 	o.Preloads = []string{"Users", "Roles"}
 	//o.Scan = true
-	err := db.Query(r.DB,&UserGroup{}, o, &pageData)
+	err := db.Query(r.DB,&Usergroup{}, o, &pageData)
 	if err != nil {
 		response.Error(c, err)
 	} else {
@@ -99,11 +100,11 @@ func (r SUserGroup) Query(c *gin.Context) {
 // @Description 用户组
 // @Produce  json
 // @Security ApiKeyAuth
-// @Param payload body PostSchema true "参数信息"
+// @Param payload body  sys.User true "参数信息"
 // @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
 // @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
 // @Router /api/v1/sys/usergroup [post]
-func (r SUserGroup) Create(c *gin.Context) {
+func (r UserGroup) Create(c *gin.Context) {
 	u, err:= user.GetUserValue(c)
 	if err!=nil{
 		response.Error(c, err)
@@ -114,22 +115,22 @@ func (r SUserGroup) Create(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	var newRow sys.UserGroup
+	var newRow sys.Usergroup
 	newRow.Name = obj.Name
 	newRow.OwnerID = &u.ID
 	tx :=r.DB.Begin()
 	defer func() {tx.Rollback()}()
-	if err= tx.Where("id in (?)", obj.Users).Find(&newRow.Users).Error; err!= nil{
+	if err:= tx.Where("id in (?)", obj.Users).Find(&newRow.Users).Error; err!= nil{
 		response.Error(c, err)
 		return
 	}
-	if err= tx.Where("id in (?)", obj.Roles).Find(&newRow.Roles).Error; err!= nil{
+	if err:= tx.Where("id in (?)", obj.Roles).Find(&newRow.Roles).Error; err!= nil{
 		response.Error(c, err)
 		return
 	}
 	newRow.ByUpdate = u.Nickname
 
-	if err= db.Create(tx, &newRow,true);err!=nil{
+	if err:= db.Create(tx, &newRow,true);err!=nil{
 		response.Error(c, err)
 		return
 	}
@@ -142,11 +143,11 @@ func (r SUserGroup) Create(c *gin.Context) {
 // @Description 用户组
 // @Produce  json
 // @Security ApiKeyAuth
-// @Param payload body  PutSchema true "参数信息"
+// @Param payload body  sys.User true "参数信息"
 // @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
 // @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
 // @Router /api/v1/sys/usergroup [put]
-func (r SUserGroup) Update(c *gin.Context) {
+func (r UserGroup) Update(c *gin.Context) {
 	u, err:= user.GetUserValue(c)
 	if err!=nil{
 		response.Error(c, err)
@@ -186,7 +187,7 @@ func (r SUserGroup) Update(c *gin.Context) {
 		ass =append(ass, db.Association{Column: "Users", Values: &users})
 	}
 
-	if err:= db.UpdateById(tx, &sys.UserGroup{},obj.ID,MapData,ass, true);err!=nil{
+	if err:= db.UpdateById(tx, &sys.Usergroup{},obj.ID,MapData,ass, true);err!=nil{
 		response.Error(c, err)
 		return
 	}
@@ -205,8 +206,8 @@ func (r SUserGroup) Update(c *gin.Context) {
 // @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
 // @Router /api/v1/sys/usergroup [delete]
 // //@Router /api/v1/sys/usergroup/{id} [delete]
-func (r SUserGroup) Delete(c *gin.Context) {
-	var obj sys.UserGroup
+func (r UserGroup) Delete(c *gin.Context) {
+	var obj sys.Usergroup
 	var data map[string][]int
 	if err := c.ShouldBindJSON(&data); err!=nil{
 		response.Error(c, err)
@@ -215,7 +216,9 @@ func (r SUserGroup) Delete(c *gin.Context) {
 
 	tx :=r.DB.Begin()
 	defer func() {tx.Rollback()}()
+	//time.Sleep(time.Second*30)
 	for _, i := range data["rows"]{
+		//var o = model.Option{Where: "id = ?", Value: []interface{}{i}}
 		if err:= db.DeleteById(tx, &obj, i, []string{"Roles", "Users"}, true); err!=nil{
 			response.Error(c, err)
 			return
@@ -225,7 +228,7 @@ func (r SUserGroup) Delete(c *gin.Context) {
 	response.DeleteSuccess(c)
 }
 
-func (r SUserGroup) Option() db.Option {
+func (r UserGroup) Option() db.Option {
 	var o db.Option
 	o.Select = "distinct usergroup.id, name, description, usergroup.ctime, usergroup.mtime, " +
 		"usergroup.by_update, user.nickname as owner_name, user.id as owner_id"

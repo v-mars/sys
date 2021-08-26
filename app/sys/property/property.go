@@ -96,7 +96,7 @@ func GetProperty(DB *gorm.DB,name string) (map[string]interface{}, error) {
 	o.Order = "ID DESC"
 	o.Scan = true
 	var obj []sys.Property
-	var pageData = response.PageDataList{PageNumber: 1,PageSize:0,List:&obj}
+	var pageData = response.PageDataList{Page: 1,PageSize:0,List:&obj}
 	err := db.Query(DB,&sys.Property{}, o, &pageData)
 	if err!=nil{
 		return nil, err

@@ -1,4 +1,4 @@
-package permission
+package api
 
 import (
 	"bytes"
@@ -6,40 +6,96 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/v-mars/frame/db"
 	"github.com/v-mars/frame/pkg/convert"
+	"github.com/v-mars/frame/pkg/utils"
 	"github.com/v-mars/frame/response"
 	"github.com/v-mars/sys/app"
+	"github.com/v-mars/sys/app/models/name"
 	"github.com/v-mars/sys/app/models/sys"
 	"github.com/v-mars/sys/app/utils/casbin"
 	"gorm.io/gorm"
 	"strings"
 )
 
-type IPermission interface {
+type IApi interface {
 	app.CommonInterfaces
-	UpdatePermission(conditions []sys.Permission) error
+	GetAllPerm(c *gin.Context)
+	GetAllGroup(c *gin.Context)
+	UpdateApi(conditions []sys.Api) error
 }
+
 var dom = "sys"
-type Permission struct {
+
+type Api struct {
 	DB *gorm.DB
 }
 
-func NewService(DB *gorm.DB) IPermission {
-	return Permission{DB: DB}
+func NewService(DB *gorm.DB) IApi {
+	return Api{DB: DB}
 }
 
-// Get
-// @Tags 权限管理
-// @Summary 权限详细
-// @Description Permission
+// GetAllPerm
+// @Tags Api接口管理
+// @Summary Api接口详细
+// @Description Api
 // @Produce  json
 // @Security ApiKeyAuth
 // @Param id path int true "ID"
 // @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
 // @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
-// @Router /api/v1/sys/permission/{id} [get]
-func (r Permission) Get(c *gin.Context) {
+// @Router /api/v1/sys/apis [get]
+func (r Api) GetAllPerm(c *gin.Context) {
+	var api sys.Api
+	tree, err := api.GetListTree(r.DB)
+	if err != nil {
+		response.Error(c, err)
+		return
+	} else {
+		response.Success(c, tree)
+	}
+}
+
+// GetAllGroup
+// @Tags Api接口管理
+// @Summary Api接口Group
+// @Description Api
+// @Produce  json
+// @Security ApiKeyAuth
+// @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
+// @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
+// @Router /api/v1/sys/api-group [get]
+func (r Api) GetAllGroup(c *gin.Context) {
+	var obj []ShowGroupData
+	var o = r.Option()
+	o.Select = "DISTINCT api.group"
+	o.Where = "api.group != null or api.group!=''"
+	o.Scan = true
+	tx :=r.DB.Begin()
+	defer func() {
+		tx.Rollback()
+	}()
+	err := db.Get(tx,&sys.Api{}, o, &obj)
+	if err != nil {
+		response.Error(c, err)
+		return
+	} else {
+		var pageData = response.PageDataList{Page: 1,PageSize:0,List:&obj,Total: int64(len(obj))}
+		response.Success(c, pageData)
+	}
+}
+
+// Get
+// @Tags Api接口管理
+// @Summary Api接口详细
+// @Description Api
+// @Produce  json
+// @Security ApiKeyAuth
+// @Param id path int true "ID"
+// @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
+// @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
+// @Router /api/v1/sys/api/{id} [get]
+func (r Api) Get(c *gin.Context) {
 	_id := c.Params.ByName("id")
-	var obj sys.Permission
+	var obj sys.Api
 	o := r.Option()
 	o.Where = "id = ?"
 	o.Value = append(o.Value, _id)
@@ -56,22 +112,24 @@ func (r Permission) Get(c *gin.Context) {
 }
 
 // Query
-// @Tags 权限管理
-// @Summary 权限列表
-// @Description Permission
+// @Tags Api接口管理
+// @Summary Api接口列表
+// @Description Api
 // @Produce  json
 // @Security ApiKeyAuth
-// @Param name query string false "权限名"
+// @Param name query string false "Api接口名"
 // @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
 // @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
-// @Router /api/v1/sys/permission [get]
-func (r Permission) Query(c *gin.Context) {
-	var obj []sys.Permission
+// @Router /api/v1/sys/api [get]
+func (r Api) Query(c *gin.Context) {
+	var obj []sys.Api
 	var pageData = response.InitPageData(c, &obj, false)
 	type Param struct {
+		Title   string `form:"title"`   // `form:"name" binding:"required"`
 		Name   string `form:"name"`   // `form:"name" binding:"required"`
-		Method string `form:"method"` // `form:"name" binding:"required"`
-		Path   string `form:"path"`    // `form:"name" binding:"required"`
+		Method string `form:"method"`
+		Path   string `form:"path"`
+		Groups    []string `form:"groups[]"`
 	}
 	var param Param
 	if err := c.ShouldBindQuery(&param); err!=nil{
@@ -81,12 +139,14 @@ func (r Permission) Query(c *gin.Context) {
 	var o = r.Option()
 	o.Where = "name like ? and method like ? and path like ?"
 	o.Value = append(o.Value, "%"+param.Name+"%", "%"+param.Method+"%", "%"+param.Path+"%")
-	o.Order = "ID DESC"
-	o.Scan = true
+	if len(param.Groups)>0{
+		o.Where = o.Where + " and api.group in (?)"
+		o.Value = append(o.Value, param.Groups)
+	}
+	o.Order = "name asc,path asc"
 	tx :=r.DB.Begin()
 	defer func() {tx.Rollback()}()
-	err := db.Query(tx,&sys.Permission{}, o, &pageData)
-	if err != nil {
+	if err := db.Query(tx,&sys.Api{}, o, &pageData);err != nil {
 		response.Error(c, err)
 		return
 	} else {
@@ -95,34 +155,32 @@ func (r Permission) Query(c *gin.Context) {
 }
 
 // Create
-// @Tags 权限管理
-// @Summary 创建权限
-// @Description Permission
+// @Tags Api接口管理
+// @Summary 创建Api接口
+// @Description Api
 // @Produce  json
 // @Security ApiKeyAuth
 // @Param payload body PostSchema true "参数信息"
 // @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
 // @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
-// @Router /api/v1/sys/permission [post]
-func (r Permission) Create(c *gin.Context) {
-	//var err error
-	//u, err:= user.GetUserValue(c)
-	//if err!=nil{
-	//	response.Error(c, err)
-	//	return
-	//}
+// @Router /api/v1/sys/api [post]
+func (r Api) Create(c *gin.Context) {
 	var obj PostSchema
-	if err := c.ShouldBindQuery(&obj); err!=nil{
+	if err := c.ShouldBindJSON(&obj); err!=nil{
 		response.ParamFailed(c, err)
 		return
 	}
-	//obj.ByUpdate = u.Nickname
 	tx :=r.DB.Begin()
 	defer func() {
 		tx.Rollback()
 	}()
-
-	if err:= db.Create(tx, &obj,true);err!=nil{
+	var newRow = sys.Api{}
+	err := utils.AnyToAny(obj, &newRow)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err= db.Create(tx, &newRow,true);err!=nil{
 		response.Error(c, err)
 		return
 	}
@@ -130,17 +188,17 @@ func (r Permission) Create(c *gin.Context) {
 }
 
 // Update
-// @Tags 权限管理
-// @Summary 更新权限
-// @Description Permission
+// @Tags Api接口管理
+// @Summary 更新Api接口
+// @Description Api
 // @Produce  json
 // @Security ApiKeyAuth
 // @Param id path int true "ID"
 // @Param payload body PutSchema true "参数信息"
 // @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
 // @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
-// @Router /api/v1/sys/permission/{id} [put]
-func (r Permission) Update(c *gin.Context) {
+// @Router /api/v1/sys/api/{id} [put]
+func (r Api) Update(c *gin.Context) {
 	var err error
 	//u, err:= user.GetUserValue(c)
 	//if err!=nil{
@@ -152,18 +210,16 @@ func (r Permission) Update(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	//obj.ByUpdate = &u.Nickname
 	_id := c.Params.ByName("id")
 	var MapData map[string]interface{}
 	if MapData,err=convert.StructToMap(obj); err!=nil{
 		response.Error(c, err)
 		return
 	}
-	//fmt.Println("mapData", MapData)
 	tx :=r.DB.Begin()
 	defer func() {tx.Rollback()}()
-	var res sys.Permission
-	if err:= db.UpdateById(tx, &res, _id,MapData,nil, true);err!=nil{
+	var res sys.Api
+	if err= db.UpdateById(tx, &res, _id,MapData,nil, true);err!=nil{
 		response.Error(c, err)
 		return
 	}
@@ -171,17 +227,17 @@ func (r Permission) Update(c *gin.Context) {
 }
 
 // Delete
-// @Tags 权限管理
-// @Summary 删除权限
-// @Description Permission
+// @Tags Api接口管理
+// @Summary 删除Api接口
+// @Description Api
 // @Produce  json
 // @Security ApiKeyAuth
 // //@Param id path int true "ID"
 // @Param payload body DeleteSchema true "参数信息: {rows:[1,2]}"
 // @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
 // @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
-// @Router /api/v1/sys/permission [delete]
-func (r Permission) Delete(c *gin.Context) {
+// @Router /api/v1/sys/api [delete]
+func (r Api) Delete(c *gin.Context) {
 	//_id := c.Params.ByName("id")
 	var data map[string][]int
 	if err:= c.ShouldBindJSON(&data);err!=nil{
@@ -194,7 +250,7 @@ func (r Permission) Delete(c *gin.Context) {
 		tx.Rollback()
 	}()
 	for _,_id := range data["rows"]{
-		if err:= db.DeleteById(tx, &sys.Permission{}, _id, []string{}, true); err!=nil{
+		if err:= db.DeleteById(tx, &sys.Api{}, _id, []string{}, true); err!=nil{
 			response.Error(c, err)
 			return
 		}
@@ -204,17 +260,17 @@ func (r Permission) Delete(c *gin.Context) {
 }
 
 
-func (r Permission) Option() db.Option {
+func (r Api) Option() db.Option {
 	var o db.Option
-	o.Select = "distinct id,name,path,method,ctime,mtime"
+	//o.Select = "distinct id,name,path,method,ctime,mtime"
 	return o
 }
 
-func (r Permission) UpdatePermission(conditions []sys.Permission) error {
+func (r Api) UpdateApi(conditions []sys.Api) error {
 	tx :=r.DB.Begin()
 	defer func() {tx.Rollback()}()
-	var obj []sys.Permission
-	var pageData = response.PageDataList{PageNumber: 1,PageSize:0,List:&obj}
+	var obj []sys.Api
+	var pageData = response.PageDataList{Page: 1,PageSize:0,List:&obj}
 	var o = r.Option()
 	o.All = true
 	var cdsStrList []string
@@ -222,13 +278,13 @@ func (r Permission) UpdatePermission(conditions []sys.Permission) error {
 		cdsStrList = append(cdsStrList, fmt.Sprintf("path='%s' and method='%s'", v.Path, v.Method))
 	}
 	o.Where = strings.Join(cdsStrList, " or ")
-	err := db.Query(tx, &sys.Permission{},o, &pageData)
+	err := db.Query(tx, &sys.Api{},o, &pageData)
 	if err!=nil{
 		return err
 	}
 
 	// 过滤新增的列表
-	var newRows []sys.Permission
+	var newRows []sys.Api
 	var existList []string
 	var existIdList []uint
 	for _,v:=range obj{
@@ -244,7 +300,7 @@ func (r Permission) UpdatePermission(conditions []sys.Permission) error {
 	}
 
 	// 过滤出需要删除的列表
-	var deleteList []sys.Permission
+	var deleteList []sys.Api
 	var deleteIdList []uint
 	if err:=tx.Find(&deleteList, "id not in (?)", existIdList).Error;err!=nil{return err}
 
@@ -252,8 +308,8 @@ func (r Permission) UpdatePermission(conditions []sys.Permission) error {
 		deleteIdList = append(deleteIdList, v.ID)
 		if _, err := casbin.Enforcer.RemoveFilteredNamedPolicy("p", 1, dom, v.Path, v.Method);err!=nil{return err}
 	}
-	if err:=tx.Exec("DELETE FROM role_permissions WHERE permission_id in (?)", deleteIdList).Error;err!=nil{return err}
-	if err:=tx.Delete(&sys.Permission{}, "id in (?)", deleteIdList).Error;err!=nil{return err}
+	if err:=tx.Exec("DELETE FROM role_api WHERE api_id in (?)", deleteIdList).Error;err!=nil{return err}
+	if err:=tx.Delete(&sys.Api{}, "id in (?)", deleteIdList).Error;err!=nil{return err}
 	if len(newRows)>0 {
 		err=tx.CreateInBatches(newRows, 100).Error
 		//err = BatchSave(tx, newRows)
@@ -268,9 +324,9 @@ func (r Permission) UpdatePermission(conditions []sys.Permission) error {
 }
 
 // BatchSave 批量插入数据
-func BatchSave(db *gorm.DB, perms []sys.Permission) error {
+func BatchSave(db *gorm.DB, perms []sys.Api) error {
 	var buffer bytes.Buffer
-	sql := fmt.Sprintf("insert into `%s` (`name`,`path`,`method`) values", tbName)
+	sql := fmt.Sprintf("insert into `%s` (`name`,`path`,`method`) values", name.Api)
 	if _, err := buffer.WriteString(sql); err != nil {
 		return err
 	}

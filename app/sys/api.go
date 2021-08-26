@@ -3,7 +3,6 @@ package sys
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/v-mars/sys/app/sys/auth"
-	"github.com/v-mars/sys/app/sys/permission"
 	"github.com/v-mars/sys/app/sys/portal"
 	"github.com/v-mars/sys/app/sys/property"
 	"github.com/v-mars/sys/app/sys/role"
@@ -41,13 +40,6 @@ func Api(app *gin.RouterGroup, d *gorm.DB)  {
 		sys.POST("/iRole", iRole.Create)
 		sys.PUT("/iRole", iRole.Update)
 		sys.DELETE("/iRole", iRole.Delete)
-
-		var permissionM = permission.NewService(d)
-		sys.GET("/permissions", permissionM.Query)
-		sys.GET("/permission", permissionM.Query)
-		sys.POST("/permission", permissionM.Create)
-		sys.PUT("/permission/:id", permissionM.Update)
-		sys.DELETE("/permission", permissionM.Delete)
 
 		var portalM = portal.NewService(d)
 		sys.GET("/portal-type", portalM.GetAllType)

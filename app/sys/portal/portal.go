@@ -93,7 +93,7 @@ func (r Portal) GetAllType(c *gin.Context) {
 		response.Error(c, err)
 		return
 	} else {
-		var pageData = response.PageDataList{PageNumber: 1,PageSize:0,List:&obj,Total: int64(len(obj))}
+		var pageData = response.PageDataList{Page: 1,PageSize:0,List:&obj,Total: int64(len(obj))}
 		response.Success(c, pageData)
 	}
 }

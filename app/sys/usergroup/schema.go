@@ -10,6 +10,7 @@ var tbName = name.UserGroup
 type Role struct {
 	ID        uint  	    `json:"id"`
 	Name      string        `json:"name"`
+	Title     string        `json:"title"`
 }
 
 type User struct {
@@ -18,7 +19,7 @@ type User struct {
 	Username  string   `json:"username"`
 }
 
-type UserGroup struct {
+type Usergroup struct {
 	ID          uint         `json:"id"`
 	Name        string       `json:"name"`
 	Description string       `json:"description"`
@@ -31,7 +32,7 @@ type UserGroup struct {
 	Mtime       db.JSONTime `json:"mtime"`
 }
 
-func (UserGroup) TableName() string {
+func (Usergroup) TableName() string {
 	return tbName
 }
 

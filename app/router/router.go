@@ -12,7 +12,7 @@ import (
 	"github.com/v-mars/sys/app/logger"
 	"github.com/v-mars/sys/app/middleware"
 	"github.com/v-mars/sys/app/models/sys"
-	"github.com/v-mars/sys/app/sys/permission"
+	"github.com/v-mars/sys/app/sys/api"
 	"io"
 	"log"
 	"net/http"
@@ -135,9 +135,9 @@ func InitRouter(RunMode string, addr string)  {
 }
 
 
-func InitUpdatePermissionByGinRoutes()  {
-	perms := permission.NewService(db.DB)
-	var res []sys.Permission
+func InitUpdateApiByGinRoutes()  {
+	perms := api.NewService(db.DB)
+	var res []sys.Api
 	routes := Engine.Routes()
 	for _,v := range routes{
 		var name string
@@ -151,10 +151,10 @@ func InitUpdatePermissionByGinRoutes()  {
 		} else if len(pathArray)==1{
 			name = fmt.Sprintf("%s:%s", pathArray[0], strings.ToLower(v.Method))
 		}
-		res = append(res, sys.Permission{Name: name,Method: v.Method, Path: v.Path})
+		res = append(res, sys.Api{Name: name,Method: v.Method, Path: v.Path})
 	}
-	err := perms.UpdatePermission(res)
+	err := perms.UpdateApi(res)
 	if err!=nil{
-		logger.Logger.Errorf("InitUpdatePermissionByGinRoutes: %s", err)
+		logger.Logger.Errorf("InitUpdateApiByGinRoutes: %s", err)
 	}
 }

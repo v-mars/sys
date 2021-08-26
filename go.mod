@@ -11,8 +11,7 @@ require (
 	github.com/casbin/casbin/v2 v2.31.2
 	github.com/casbin/gorm-adapter/v3 v3.2.12
 	github.com/chenjiandongx/ginprom v0.0.0-20201217063207-fe11b7f55a35
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
-	github.com/gin-contrib/pprof v1.3.0
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/sessions v0.0.3
 	github.com/gin-gonic/gin v1.7.2
 	github.com/go-ldap/ldap/v3 v3.3.0
@@ -25,7 +24,7 @@ require (
 	github.com/swaggo/gin-swagger v1.3.0
 	github.com/swaggo/swag v1.7.0
 	github.com/tklauser/go-sysconf v0.3.6 // indirect
-	github.com/v-mars/frame v1.0.6
+	github.com/v-mars/frame v1.0.7
 	golang.org/x/text v0.3.4
 	gorm.io/driver/mysql v1.1.0
 	gorm.io/gorm v1.21.10

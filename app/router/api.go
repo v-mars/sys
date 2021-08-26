@@ -17,11 +17,6 @@ func RegisterRouter(engine *gin.Engine) error {
 	engine.GET("/ping", Ping)
 	engine.GET("/gin/routes", Query)
 
-	//engine.POST("/api/v1/login", auth.LoginAuth)
-	//engine.POST("/api/v1/refresh-token", auth.RefreshToken)
-	//engine.POST("/api/login", auth.LoginAuth)
-	//engine.GET("/api/v1/user-info", user.GetUserInfo)
-
 	return nil
 }
 
@@ -56,7 +51,7 @@ func Ping(c *gin.Context)  {
 	logger.Infof("from client %s ping", c.ClientIP())
 	ips,_:= ServerIPv4s()
 	c.JSON(200, gin.H{
-		"app": "air cloud",
+		"app": "sys",
 		"message": "pong",
 		"status": "success",
 		"clientIP": c.ClientIP(),

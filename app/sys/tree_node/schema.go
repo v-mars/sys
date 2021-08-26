@@ -1,8 +1,6 @@
 package tree_node
 
-import (
-	"github.com/v-mars/sys/app/models/name"
-)
+import "github.com/v-mars/sys/app/models/name"
 
 var tbName = name.TreeNode
 

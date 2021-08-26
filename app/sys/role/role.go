@@ -3,10 +3,12 @@ package role
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/v-mars/frame/db"
 	"github.com/v-mars/frame/pkg/convert"
+	"github.com/v-mars/frame/pkg/logger"
 	"github.com/v-mars/frame/pkg/utils"
 	"github.com/v-mars/frame/response"
+	//"github.com/v-mars/sys/app/models"
+	"github.com/v-mars/frame/db"
 	"github.com/v-mars/sys/app/models/sys"
 	"github.com/v-mars/sys/app/sys/user"
 	"github.com/v-mars/sys/app/utils/casbin"
@@ -42,18 +44,21 @@ func NewService(DB *gorm.DB) IRole {
 // @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
 // @Router /api/v1/sys/roles [get]
 func (r Role) GetAll(c *gin.Context) {
-	var obj []ShowData
-	var pageData = response.InitPageData(c, &obj, true)
-	o := db.Option{}
-	o.Select = "distinct id, name"
-	o.Order = "ID DESC"
-	o.Scan = true
-	err := db.Query(r.DB,&sys.Role{}, o, &pageData)
+	//var obj []ShowData
+	//var pageData = response.InitPageData(c, &obj, true)
+	//o := models.Option{}
+	//o.Select = "distinct id, name"
+	//o.Order = "ID DESC"
+	//o.Scan = true
+	//err := models.Query(r.DB,&tbs.Role{}, o, &pageData)
+
+	var api sys.Role
+	tree, err := api.GetListTree(r.DB)
 	if err != nil {
 		response.Error(c, err)
 		return
 	} else {
-		response.Success(c, pageData)
+		response.Success(c, tree)
 	}
 
 }
@@ -80,17 +85,38 @@ func (r Role) Query(c *gin.Context) {
 		return
 	}
 	var o db.Option
-	o.Where = "name like ?"
+	o.Where = "(parent_id = 0 or parent_id is null) and name like ?"
 	o.Value = append(o.Value, "%"+param.Name+"%")
-	o.Select = "distinct id, name, description, by_update, ctime, mtime"
-	o.Preloads = []string{"Permissions"}
-	o.Order = "ID DESC"
-	//o.Scan = true
-	err := db.Query(r.DB,&obj, o, &pageData)
-	if err != nil {
+	o.Preloads = []string{"Apis"}
+	o.Order = "sort asc"
+
+	var api sys.Role
+	tree, err := api.GetMapTree(r.DB)
+	if err!=nil{
+		response.Error(c, err)
+		return
+	}
+
+	var data = make([]map[string]interface{},0)
+	if err = db.Query(r.DB,&obj, o, &pageData);err != nil {
 		response.Error(c, err)
 		return
 	} else {
+		for _,v := range obj{
+			tree[v.ID]["apis"] = v.Apis
+			if tree[v.ID] != nil{
+				data = append(data, tree[v.ID])
+			} else {
+				var t = map[string]interface{}{}
+				err = utils.AnyToAny(tree[v.ID], &t)
+				if err != nil {
+					response.Error(c, err)
+					return
+				}
+				data = append(data, t)
+			}
+		}
+		pageData.List = data
 		response.Success(c, pageData)
 	}
 }
@@ -113,28 +139,30 @@ func (r Role) Create(c *gin.Context) {
 	}
 	var obj PostSchema
 	var newRow sys.Role
-	if err := c.ShouldBindJSON(&obj); err!=nil{
+	if err = c.ShouldBindJSON(&obj); err!=nil{
 		response.ParamFailed(c, err)
 		return
 	}
 	newRow.Name = obj.Name
 	newRow.Description = obj.Description
 	newRow.ByUpdate = u.Nickname
+	newRow.ParentID = obj.ParentID
+	newRow.Path = obj.Path
 	tx :=r.DB.Begin()
 	defer func() {tx.Rollback()}()
-	if err:= tx.Model(&sys.Permission{}).Where("id in (?)", obj.Permissions).Select(
-		"id,name,path,method").Scan(&newRow.Permissions).Error;err!=nil{
+	if err= tx.Model(&sys.Api{}).Where("id in (?)", obj.Apis).Select(
+		"id,name,path,method").Scan(&newRow.Apis).Error;err!=nil{
 		response.Error(c, err)
 		return
 	}
-	for _,v:=range newRow.Permissions{
+	for _,v:=range newRow.Apis{
 		_, err = casbin.Enforcer.AddPolicy(v.Name, dom,v.Path, v.Method)
 		if err!=nil{
 			response.Error(c, err)
 			return
 		}
 	}
-	if err:= db.Create(tx, &newRow,true);err!=nil{
+	if err= db.Create(tx, &newRow,true);err!=nil{
 		response.Error(c, err)
 		return
 	}
@@ -159,12 +187,14 @@ func (r Role) Update(c *gin.Context) {
 	}
 
 	var obj PutSchema
-	if err := c.ShouldBindJSON(&obj); err!=nil{
+	if err = c.ShouldBindJSON(&obj); err!=nil{
 		response.Error(c, err)
 		return
 	}
 	obj.ByUpdate = &u.Nickname
-
+	if obj.ID == *obj.ParentID {
+		*obj.ParentID=0
+	}
 	var MapData map[string]interface{}
 	if MapData,err=convert.StructToMap(obj); err!=nil{
 		response.Error(c, err)
@@ -173,21 +203,29 @@ func (r Role) Update(c *gin.Context) {
 	tx :=r.DB.Begin()
 	defer func() {tx.Rollback()}()
 	var ass []db.Association
-	if obj.Permissions != nil{
-		var permissions []sys.Permission
-		if err:= tx.Model(&sys.Permission{}).Where("id in (?)", *obj.Permissions).Select("id,name,path,method").Scan(&permissions).Error;err!=nil{
+	var role sys.Role
+	if err=tx.First(&role, obj.ID).Error;err!=nil{
+		response.Error(c, err)
+		return
+	}
+	if obj.Path!=nil{
+		if len(*obj.Path)>9{
+			response.Error(c, fmt.Errorf("角色层级深度不能超过10级"))
+			return
+		}
+		MapData["path"] = obj.Path
+	}
+
+	if obj.Apis != nil{
+		var apis []sys.Api
+		if err= tx.Model(&sys.Api{}).Where("id in (?)", *obj.Apis).Select("id,name,path,method").Scan(&apis).Error;err!=nil{
 			response.Error(c, err)
 			return
 		}
-		ass =append(ass, db.Association{Column: "Permissions", Values: &permissions})
-		var role sys.Role
-		if err:=tx.First(&role, obj.ID).Error;err!=nil{
-			response.Error(c, err)
-			return
-		}
+		ass =append(ass, db.Association{Column: "Apis", Values: &apis})
 
 		var newStrArray []string
-		for _,v:=range permissions{
+		for _,v:=range apis{
 			newStrArray=append(newStrArray, fmt.Sprintf("%s:%s:%s:%s",role.Name, dom,v.Path, v.Method))
 			_, err = casbin.Enforcer.AddPolicy(role.Name, dom,v.Path, v.Method)
 			if err!=nil{
@@ -195,14 +233,8 @@ func (r Role) Update(c *gin.Context) {
 				return
 			}
 		}
-		existsList := casbin.Enforcer.GetPermissionsForUser(role.Name, dom)
 
-		//existsList, err := casbin.Enforcer.GetImplicitPermissionsForUser(role.Name, dom)
-		//if err!=nil{
-		//	response.Error(c, err)
-		//	return
-		//}
-		//fmt.Println("existsList:", existsList)
+		existsList := casbin.Enforcer.GetPermissionsForUser(role.Name, dom)
 		for _,v:=range existsList {
 			var strTmp = strings.Join(v, ":")
 			if len(v)==4 && !utils.InOfStr(strTmp, newStrArray){
@@ -213,13 +245,40 @@ func (r Role) Update(c *gin.Context) {
 				}
 			}
 		}
-
 	}
-	if err:= db.UpdateById(tx, &sys.Role{},obj.ID,MapData,ass, true);err!=nil{
+
+	if err= db.UpdateById(tx, &sys.Role{},obj.ID,MapData,ass, true);err!=nil{
 		response.Error(c, err)
 		return
 	}
 
+	if obj.ParentID!=nil && *obj.ParentID != 0 {
+		var parentRole sys.Role
+		if err=r.DB.First(&parentRole, *obj.ParentID).Error;err!=nil{
+			response.Error(c, err)
+			return
+		}
+		if role.ParentID != 0 && role.ParentID != *obj.ParentID {
+			_, err = casbin.Enforcer.RemoveFilteredNamedGroupingPolicy("g", 1, role.Name, parentRole.Name, dom)
+			if err != nil {
+				response.Error(c, err)
+				return
+			}
+		}
+		_, err = casbin.Enforcer.AddGroupingPolicy(parentRole.Name, role.Name, dom)
+		if err != nil {
+			response.Error(c, err)
+			return
+		}
+	}else {
+		if role.ParentID != 0 {
+			_, err = casbin.Enforcer.RemoveFilteredNamedGroupingPolicy("g", 1, role.Name, "", dom)
+			if err != nil {
+				response.Error(c, err)
+				return
+			}
+		}
+	}
 	response.UpdateSuccess(c)
 }
 
@@ -246,22 +305,46 @@ func (r Role) Delete(c *gin.Context) {
 	defer func() {tx.Rollback()}()
 
 	var deleteList []sys.Role
+	var childList []sys.Role
 	if err:=tx.Model(&sys.Role{}).Find(&deleteList,"id in (?)", data["rows"]).Error;err!=nil{
 		response.Error(c, err)
 		return
 	}
+	if err:=tx.Model(&sys.Role{}).Find(&childList,"parent_id in (?)", data["rows"]).Error;err!=nil{
+		response.Error(c, err)
+		return
+	}
+	if len(childList)>0{
+		response.Error(c, fmt.Errorf("角色包含子角色不能删除"))
+		return
+	}
+
+
 	for _,v:=range deleteList{
+		if err:=tx.Model(&sys.Role{}).Find(&deleteList,"id in (?)", data["rows"]).Error;err!=nil{
+			response.Error(c, err)
+			return
+		}
 		if _, err := casbin.Enforcer.RemoveFilteredNamedPolicy("p", 0, v.Name, dom);err!=nil{
 			response.Error(c, err)
 			return}
-	}
-	for _,_id := range data["rows"]{
-		if err:= db.DeleteById(tx, &obj, _id, []string{"Permissions"}, true); err!=nil{
+		if _, err := casbin.Enforcer.RemoveFilteredNamedGroupingPolicy("g", 0, v.Name, "", dom);err!=nil{
+			response.Error(c, err)
+			return
+		}
+		if _, err := casbin.Enforcer.RemoveFilteredNamedGroupingPolicy("g",1, v.Name, dom);err!=nil{
 			response.Error(c, err)
 			return
 		}
 	}
-
+	logger.Logger.Printf("角色关联api删除成功")
+	for _,_id := range data["rows"]{
+		if err:= db.DeleteById(tx, &obj, _id, []string{"Apis"}, true); err!=nil{
+			response.Error(c, err)
+			return
+		}
+	}
+	logger.Logger.Printf("角色删除成功")
 	response.DeleteSuccess(c)
 }
 

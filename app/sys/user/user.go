@@ -1,7 +1,6 @@
 package user
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/v-mars/frame/db"
@@ -9,16 +8,17 @@ import (
 	"github.com/v-mars/frame/pkg/utils"
 	"github.com/v-mars/frame/response"
 	"github.com/v-mars/sys/app"
-	"github.com/v-mars/sys/app/models"
 	"github.com/v-mars/sys/app/models/sys"
 	"github.com/v-mars/sys/app/utils/casbin"
 	"gorm.io/gorm"
-	"log"
+	"strconv"
 )
 
 type IUser interface {
 	GetAll(c *gin.Context)
-	SetPassWord(c *gin.Context)
+	ResetPassword(c *gin.Context)
+	ChangePassword(c *gin.Context)
+	ChangeProfile(c *gin.Context)
 	app.CommonInterfaces
 }
 var dom = "sys"
@@ -26,6 +26,7 @@ type SUser struct {
 	DB *gorm.DB
 }
 
+var Model = &sys.User{}
 
 func NewService(DB *gorm.DB) IUser {
 	return SUser{DB: DB}
@@ -50,10 +51,11 @@ func (r SUser) Get(c *gin.Context) {
 	o := r.Option()
 	o.Where = "user.id = ?"
 	o.Value = append(o.Value, id)
+	o.Preloads = []string{"Roles"}
 	o.First = true
 	o.NullError = true
 	var obj User
-	err := db.Get(r.DB,&sys.User{}, o, &obj)
+	err := db.Get(r.DB,&User{}, o, &obj)
 	if err!= nil {
 		response.Error(c, err)
 	} else {
@@ -96,7 +98,7 @@ func (r SUser) GetAll(c *gin.Context) {
 // @Description 用户
 // @Produce  json
 // @Security ApiKeyAuth
-// @Param pageNumber query int false "pageNumber"
+// @Param page query int false "page"
 // @Param pageSize query int false "pageSize"
 // @Param username query string false "用户名"
 // @Param nickname query string false "用户显示名"
@@ -124,9 +126,8 @@ func (r SUser) Query(c *gin.Context) {
 		o.Where = o.Where + " and role.id in (?)"
 		o.Value = append(o.Value, param.Roles)
 	}
-	//o.Select = "distinct user.id as id, user.nickname, user.username, phone, " +
-	//	"email, user_type_id, user.ctime, user.mtime, by_update"
-	o.Order = "ID DESC"
+	o.Order = "user.ID DESC"
+	o.Group = "user.id"
 	o.Preloads = []string{"Roles"}
 	//o.Scan = true
 	err := db.Query(r.DB, &User{}, o, &pageData)
@@ -167,7 +168,7 @@ func (r SUser) Create(c *gin.Context) {
 	newRow.Phone = obj.Phone
 	tx :=r.DB.Begin()
 	defer func() {tx.Rollback()}()
-	if err= tx.Model(&sys.Role{}).Where("id in (?)", obj.Roles).Select("id,name").Scan(&newRow.Roles).Error;err!=nil{
+	if err:= tx.Model(&sys.Role{}).Where("id in (?)", obj.Roles).Select("id,name").Scan(&newRow.Roles).Error;err!=nil{
 		response.Error(c, err)
 		return
 	}
@@ -178,6 +179,7 @@ func (r SUser) Create(c *gin.Context) {
 			return
 		}
 	}
+	//fmt.Println(user, reflect.TypeOf(user))
 	newRow.ByUpdate = u.Nickname
 	if err:= db.Create(tx, &newRow, true);err!=nil{
 		response.Error(c, err)
@@ -258,8 +260,11 @@ func (r SUser) Update(c *gin.Context) {
 		}
 
 	}
+	if obj.Path!=nil{
+		MapData["path"] = obj.Path
+	}
 	var user sys.User
-	if err= db.UpdateById(tx, &user,_id,MapData,ass, true);err!=nil{
+	if err:= db.UpdateById(tx, &user,_id,MapData,ass, true);err!=nil{
 		response.Error(c, err)
 		return
 	}
@@ -280,6 +285,7 @@ func (r SUser) Update(c *gin.Context) {
 // @Router /api/v1/sys/user [delete]
 // //@Router /api/v1/sys/user/{id} [delete]
 func (r SUser) Delete(c *gin.Context) {
+	//var obj sys.User
 	var data map[string][]int
 	if err := c.ShouldBindJSON(&data); err!=nil{
 		response.Error(c, err)
@@ -298,7 +304,9 @@ func (r SUser) Delete(c *gin.Context) {
 			return
 		}
 	}
+	//time.Sleep(time.Second*30)
 	for _, i := range data["rows"]{
+		//var o = model.Option{Where: "id = ?", Value: []interface{}{i}}
 		if err:= db.DeleteById(tx, &sys.User{}, i, []string{"Roles"}, true); err!=nil{
 			response.Error(c, err)
 			return
@@ -308,18 +316,25 @@ func (r SUser) Delete(c *gin.Context) {
 	response.DeleteSuccess(c)
 }
 
-func (r SUser) SetPassWord (c *gin.Context)  {
-	type Param struct {
-		ID       uint   `json:"id" binding:"required"`
-		Password string `json:"password" binding:"required"`
-	}
-	var obj Param
+// ResetPassword
+// @Tags 用户管理
+// @Summary 更新用户密码
+// @Description 用户
+// @Produce  json
+// @Security ApiKeyAuth
+// @Param id path int true "ID"
+// @Param payload body  RestPass true "参数信息"
+// @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
+// @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
+// @Router /api/v1/sys/user-pass-reset/{id} [put]
+func (r SUser) ResetPassword (c *gin.Context)  {
+	var obj RestPass
 	if err := c.ShouldBindJSON(&obj); err!=nil{
 		response.Error(c, err)
 		return
 	}
 	encPassword := utils.SHA256HashString(obj.Password)
-	if err:= models.DB.Model(&sys.User{}).Where("id = ?", obj.ID).Updates(
+	if err:= r.DB.Model(&sys.User{}).Where("id = ?", obj.ID).Updates(
 		map[string]interface{}{"password": encPassword}).Error;err!=nil{
 		response.Error(c, err)
 		return
@@ -327,23 +342,107 @@ func (r SUser) SetPassWord (c *gin.Context)  {
 	response.SuccessMsg(c, "密码更新成功", map[string]string{})
 }
 
+// ChangePassword
+// @Tags 用户管理
+// @Summary 用户密码修改
+// @Description 用户
+// @Produce  json
+// @Security ApiKeyAuth
+// @Param id path int true "ID"
+// @Param payload body  RestPass true "参数信息"
+// @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
+// @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
+// @Router /api/v1/sys/user-pass/{id} [put]
+func (r SUser) ChangePassword (c *gin.Context)  {
+	u, err:= GetUserValue(c)
+	if err!=nil{
+		response.Error(c, err)
+		return
+	}
+	_id := c.Params.ByName("id")
+	if _id!= strconv.Itoa(int(u.ID)){
+		response.Error(c, fmt.Errorf("当前用户%s[%d]非法修改用户密码",u.Username,u.ID))
+		return
+	}
+	var obj ChangePass
+	if err = c.ShouldBindJSON(&obj); err!=nil{
+		response.Error(c, err)
+		return
+	}
+	auth := Auth(r.DB,u.Username, obj.OldPassword)
+	if !auth {
+		response.Error(c, fmt.Errorf("旧密码不正确"))
+		return
+	}
+
+	if obj.Password!=obj.RePassword {
+		response.Error(c, fmt.Errorf("密码不一致"))
+		return
+	}
+	encPassword := utils.SHA256HashString(obj.Password)
+	if err= r.DB.Model(&sys.User{}).Where("id = ?", _id).Updates(
+		map[string]interface{}{"password": encPassword}).Error;err!=nil{
+		response.Error(c, err)
+		return
+	}
+	response.SuccessMsg(c, "密码更新成功", map[string]string{})
+}
+
+// ChangeProfile
+// @Tags 用户管理
+// @Summary 更新用户信息
+// @Description 用户
+// @Produce  json
+// @Security ApiKeyAuth
+// @Param id path int true "ID"
+// @Param payload body  RestPass true "参数信息"
+// @Success 200 object response.Data {"code": 2000, "status": "ok", "message": "success", "data": ""}
+// @Failure 400 object response.Data {"code": 4001, "status": "error", "message": "error", "data": ""}
+// @Router /api/v1/sys/user-profile/{id} [put]
+func (r SUser) ChangeProfile (c *gin.Context)  {
+	u, err:= GetUserValue(c)
+	if err!=nil{
+		response.Error(c, err)
+		return
+	}
+	_id := c.Params.ByName("id")
+	if _id != strconv.Itoa(int(u.ID)){
+		response.Error(c, fmt.Errorf("当前用户%s[%d]非法修改用户信息",u.Username,u.ID))
+		return
+	}
+	var obj ChangeProfile
+	if err = c.ShouldBindJSON(&obj); err!=nil{
+		response.Error(c, err)
+		return
+	}
+	obj.ByUpdate = u.Nickname
+	var MapData map[string]interface{}
+	if MapData,err=convert.StructToMap(obj); err!=nil{
+		response.Error(c, err)
+		return
+	}
+	if err= r.DB.Model(&sys.User{}).Where("id = ?", _id).Updates(MapData).Error;err!=nil{
+		response.Error(c, err)
+		return
+	}
+	response.SuccessMsg(c, "更新成功", map[string]string{})
+}
+
 func (r SUser) Option() db.Option {
 	var o db.Option
 	o.Select = "distinct user.id as id, user.nickname, user.username, phone, " +
-		"email, user_type_id, status,user.by_update,user.ctime, user.mtime"
+		"email, user_type,user.path, status,user.by_update,user.ctime, user.mtime"
 	o.Joins = "left join user_roles on user_roles.user_id = user.id left join role on user_roles.role_id = role.id "
 	return o
 }
 
 
-func Auth(username, password string) bool {
+func Auth(DB *gorm.DB,username, password string) bool {
 	var count int64
-	if err:= models.DB.Model(&sys.User{}).Where("username = ? and password = ? and user_type_id = ? and status = ?",
-		username, utils.SHA256HashString(password), 1, true).Count(&count).Error;err!=nil {
-		log.Println(err)
+	if err:= DB.Model(&sys.User{}).Where("username = ? and password = ? and user_type = ? and status = ?",
+		username, utils.SHA256HashString(password), "local", true).Count(&count).Error;err!=nil {
 		return false
 	}
-	//fmt.Println("count:", count)
 	if count == 0 {
 		return false
 	} else {
@@ -358,8 +457,7 @@ func GetUserInfo(c *gin.Context)  {
 		response.Error(c, err)
 		return
 	}
-	//fmt.Println("u:", u)
-	if u.Name == "" {
+	if u.Name == "" && u.ID == 0 {
 		response.Error(c, fmt.Errorf("user info is null"))
 	}
 	response.Success(c, u)
@@ -369,13 +467,12 @@ func GetUserInfo(c *gin.Context)  {
 func GetUserValue(c *gin.Context) (InfoUser, error) {
 	userInfo := c.Value("userInfo")
 	var u InfoUser
-	tmp, err := json.Marshal(userInfo)
-	if err!=nil{
-		return u, err
+	err := utils.AnyToAny(userInfo, &u)
+	if err != nil {
+		return InfoUser{}, err
 	}
-	err = json.Unmarshal(tmp, &u)
-	if err!=nil{
-		return u, err
+	if u.Name == "" && u.ID == 0 {
+		return u, fmt.Errorf("user info is null")
 	}
 	return u, nil
 }
@@ -384,9 +481,6 @@ func AddUser(DB *gorm.DB,user *sys.User) error {
 	user.Password = utils.SHA256HashString(user.Password)
 	tx :=DB.Begin()
 	defer func() {tx.Rollback()}()
-	//if err:= tx.Model(&tbs.Role{}).Where("id in (?)", user.Roles).Select("id,name").Scan(&user.Roles).Error;err!=nil{
-	//	return err
-	//}
 	for _,v:=range user.Roles{
 		_, err := casbin.Enforcer.AddGroupingPolicy(user.Username,v.Name, dom) // user role dom
 		if err!=nil{

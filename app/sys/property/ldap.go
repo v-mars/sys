@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/v-mars/frame/pkg/convert"
-	"github.com/v-mars/frame/pkg/logger"
 	"github.com/v-mars/frame/pkg/utils"
 	"github.com/v-mars/frame/response"
-	utilsApi "github.com/v-mars/sys/app/utils"
+	"github.com/v-mars/sys/app/logger"
+	appUtils "github.com/v-mars/sys/app/utils"
 	"github.com/v-mars/sys/app/utils/ldap"
 	"gorm.io/gorm"
 )
@@ -93,7 +93,7 @@ func GetLdapApiFromDB(DB *gorm.DB) (*ldap.LDAP,error) {
 		data["password"] = utils.Base64Dec(convert.ToString(data["password"]))
 	}
 	var obj LDAP
-	err = utilsApi.StructToStruct(data, &obj)
+	err = appUtils.StructToStruct(data, &obj)
 	if err != nil {
 		return nil,fmt.Errorf("map convert ldap struct err: %s", err)
 	}
